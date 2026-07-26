@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 from sqlalchemy.orm import validates
 
 db = SQLAlchemy()
@@ -68,19 +69,20 @@ class WorkoutExercise(db.Model):
     workout = db.relationship('Workout', back_populates='workout_exercises')
     exercise = db.relationship('Exercise', back_populates='workout_exercises')
 
-    @validates('reps', 'sets', 'duration_seconds')
-    def validate_at_least_one_metric(self, key, value):
-        pending = {
-            'reps': self.reps,
-            'sets': self.sets,
-            'duration_seconds': self.duration_seconds,
-        }
-        pending[key] = value
-        if all(v is None for v in pending.values()):
-            raise ValueError(
-                "WorkoutExercise must have at least one of reps, sets, or duration_seconds set"
-            )
-        return value
-
     def __repr__(self):
         return f'<WorkoutExercise {self.id}: workout={self.workout_id}, exercise={self.exercise_id}>'
+
+
+@event.listens_for(WorkoutExercise, 'before_insert')
+@event.listens_for(WorkoutExercise, 'before_update')
+def validate_at_least_one_metric(mapper, connection, target):
+    """Ensure a WorkoutExercise carries at least one of reps, sets, or duration_seconds.
+
+    Implemented as a SQLAlchemy event (rather than @validates) because it needs
+    to check the object's final state right before it's written to the database,
+    not just react to a single attribute being assigned.
+    """
+    if target.reps is None and target.sets is None and target.duration_seconds is None:
+        raise ValueError(
+            "WorkoutExercise must have at least one of reps, sets, or duration_seconds set"
+        )
