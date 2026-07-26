@@ -3,7 +3,6 @@ from sqlalchemy.orm import validates
 
 db = SQLAlchemy()
 
-
 class Exercise(db.Model):
     __tablename__ = 'exercises'
 
@@ -12,8 +11,16 @@ class Exercise(db.Model):
     category = db.Column(db.String, nullable=False)
     equipment_needed = db.Column(db.Boolean, nullable=False, default=False)
 
+    workout_exercises = db.relationship(
+        'WorkoutExercise', back_populates='exercise', cascade='all, delete-orphan'
+    )
+    workouts = db.relationship(
+        'Workout', secondary='workout_exercises', back_populates='exercises', viewonly=True
+    )
+
     def __repr__(self):
         return f'<Exercise {self.id}: {self.name}>'
+
 
 class Workout(db.Model):
     __tablename__ = 'workouts'
@@ -23,8 +30,16 @@ class Workout(db.Model):
     duration_minutes = db.Column(db.Integer, nullable=False)
     notes = db.Column(db.Text)
 
+    workout_exercises = db.relationship(
+        'WorkoutExercise', back_populates='workout', cascade='all, delete-orphan'
+    )
+    exercises = db.relationship(
+        'Exercise', secondary='workout_exercises', back_populates='workouts', viewonly=True
+    )
+
     def __repr__(self):
-        return f'<Workout {self.id}: {self.date}, {self.duration_minutes} min>'    
+        return f'<Workout {self.id}: {self.date}, {self.duration_minutes} min>'
+
 
 class WorkoutExercise(db.Model):
     __tablename__ = 'workout_exercises'
@@ -36,5 +51,8 @@ class WorkoutExercise(db.Model):
     sets = db.Column(db.Integer)
     duration_seconds = db.Column(db.Integer)
 
+    workout = db.relationship('Workout', back_populates='workout_exercises')
+    exercise = db.relationship('Exercise', back_populates='workout_exercises')
+
     def __repr__(self):
-        return f'<WorkoutExercise {self.id}: workout={self.workout_id}, exercise={self.exercise_id}>'    
+        return f'<WorkoutExercise {self.id}: workout={self.workout_id}, exercise={self.exercise_id}>'
