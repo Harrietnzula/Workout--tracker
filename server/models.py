@@ -3,11 +3,14 @@ from sqlalchemy.orm import validates
 
 db = SQLAlchemy()
 
+
 class Exercise(db.Model):
     __tablename__ = 'exercises'
 
+    VALID_CATEGORIES = ('cardio', 'strength', 'flexibility', 'balance')
+
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, nullable=False, unique=True)
     category = db.Column(db.String, nullable=False)
     equipment_needed = db.Column(db.Boolean, nullable=False, default=False)
 
@@ -18,12 +21,23 @@ class Exercise(db.Model):
         'Workout', secondary='workout_exercises', back_populates='exercises', viewonly=True
     )
 
+    @validates('category')
+    def validate_category(self, key, value):
+        if value not in self.VALID_CATEGORIES:
+            raise ValueError(
+                f"category must be one of {self.VALID_CATEGORIES}, got '{value}'"
+            )
+        return value
+
     def __repr__(self):
         return f'<Exercise {self.id}: {self.name}>'
 
 
 class Workout(db.Model):
     __tablename__ = 'workouts'
+    __table_args__ = (
+        db.CheckConstraint('duration_minutes > 0', name='check_duration_positive'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
@@ -53,6 +67,20 @@ class WorkoutExercise(db.Model):
 
     workout = db.relationship('Workout', back_populates='workout_exercises')
     exercise = db.relationship('Exercise', back_populates='workout_exercises')
+
+    @validates('reps', 'sets', 'duration_seconds')
+    def validate_at_least_one_metric(self, key, value):
+        pending = {
+            'reps': self.reps,
+            'sets': self.sets,
+            'duration_seconds': self.duration_seconds,
+        }
+        pending[key] = value
+        if all(v is None for v in pending.values()):
+            raise ValueError(
+                "WorkoutExercise must have at least one of reps, sets, or duration_seconds set"
+            )
+        return value
 
     def __repr__(self):
         return f'<WorkoutExercise {self.id}: workout={self.workout_id}, exercise={self.exercise_id}>'
