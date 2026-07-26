@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate  # type: ignore[import]
 
 
 class ExerciseSchema(Schema):
